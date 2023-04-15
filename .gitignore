@@ -1,0 +1,17 @@
+# Visual Studio files
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+/bin/
+/obj/
+
+# NuGet packages
+**/packages/*
+
+# Other
+*.log
+*.vsix
