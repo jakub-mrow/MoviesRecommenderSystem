@@ -134,4 +134,103 @@ public class MoviesController : ControllerBase
         return dbContext.Genres.Where(m => m.Movies.Any(p => p.MovieID.Equals(movie_id)));
     }
 
+
+    [HttpGet("genresVector/{movie_id}")]
+    public int[] genresVector(int movie_id)
+    {
+        int[] vector = new int[37];
+        
+        using (var dbContext = new MoviesContext())
+        {
+            IEnumerable<Genre> movieGenres = dbContext.Genres.Where(m => m.Movies.Any(p => p.MovieID.Equals(movie_id))).ToList();
+
+            IEnumerable<Genre> allGenres = dbContext.Genres.AsEnumerable();
+
+            int i = 0;
+            foreach(Genre genre in allGenres){
+                bool allProcessed = true;
+                foreach(Genre movieGenre in movieGenres){
+                    if (genre.Name == movieGenre.Name){
+                        vector[i] = 1;
+                        allProcessed = false;
+                        break;
+                    } 
+                }
+                if (allProcessed){
+                    vector[i] = 0;
+                }
+                i++;
+                if (i == 37){
+                    break;
+                }
+            }
+        }
+        return vector;
+    }
+
+
+    [HttpGet("compareMovies/{movie1_id}/{movie2_id}")]
+    public double compareMovies(int movie1_id, int movie2_id){
+
+        int[] vector1 = genresVector(movie1_id);
+        int[] vector2 = genresVector(movie2_id);
+
+        return CosineSimilarity(vector1, vector2);
+    }
+
+
+    [HttpGet("getMoviesWithSimilarGenres/{movie_id}")]
+    public IEnumerable<Movie> getMoviesWithSimilarGenres(int movie_id){
+
+        List<Movie> similarMovies = new List<Movie>();
+        using (var dbContext = new MoviesContext()){
+            IEnumerable<Genre> movieGenres = dbContext.Genres.Where(m => m.Movies.Any(p => p.MovieID.Equals(movie_id))).ToList();
+
+            IEnumerable<Movie> allMovies = dbContext.Movies.AsEnumerable().ToList();
+
+        
+            foreach(Movie movie in allMovies){
+                IEnumerable<Genre> genres = dbContext.Genres.Where(m => m.Movies.Any(p => p.MovieID.Equals(movie.MovieID)));
+                foreach(Genre movieGenre in genres){
+                    bool genreExists = movieGenres.Any(genre => genre.Name == movieGenre.Name);
+                    if (genreExists){
+                        similarMovies.Add(movie);
+                        break;
+                    }
+                }
+            }
+        }
+        return similarMovies;
+    }
+
+
+    [HttpGet("getMoviesAboveThreshold/{movie_id}/{threshold}")]
+    public IEnumerable<Movie> getMoviesAboveThreshold(int movie_id, double threshold){
+        List<Movie> similarMovies = new List<Movie>();
+        using (var dbContext = new MoviesContext()){
+            IEnumerable<Movie> allMovies = dbContext.Movies.AsEnumerable().ToList();
+
+            foreach(Movie movie in allMovies){
+                int[] vector1 = genresVector(movie_id);
+                int[] vector2 = genresVector(movie.MovieID);
+                double moviesSimilarity = CosineSimilarity(vector1, vector2);
+                if (moviesSimilarity >= threshold && movie_id != movie.MovieID){
+                    similarMovies.Add(movie);
+                }
+            }
+        }
+        return similarMovies;
+    }
+
+    static double CosineSimilarity(int[] vector1, int[] vector2)
+    {
+        double dotProduct = vector1.Select((x, i) => x * vector2[i]).Sum();
+        double magnitude1 = Math.Sqrt(vector1.Select(x => x * x).Sum());
+        double magnitude2 = Math.Sqrt(vector2.Select(x => x * x).Sum());
+
+        return dotProduct / (magnitude1 * magnitude2);
+    }
+
 }
+
+
