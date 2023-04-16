@@ -222,6 +222,81 @@ public class MoviesController : ControllerBase
         return similarMovies;
     }
 
+
+    [HttpGet("getSortedUserRatedMovies/{user_id}")]
+    public IEnumerable<RatedMovie> getSortedUserRatedMovies(int user_id){
+        List<RatedMovie> ratedMovies = new List<RatedMovie>();
+        using (var dbContext = new MoviesContext()){
+            IEnumerable<Movie> allMovies = dbContext.Movies.AsEnumerable().ToList();
+            IEnumerable<Rating> userRatings = dbContext.Ratings.Where(r => r.RatingUser.UserID == user_id).OrderByDescending(r => r.RatingValue).ToList();
+            foreach(Rating rating in userRatings){
+                foreach(Movie movie in allMovies){
+                    if (rating.RatedMovie.MovieID == movie.MovieID){
+                        ratedMovies.Add(new RatedMovie { Movie = movie, RatingValue = rating.RatingValue });
+                    }
+                }
+            }
+        }
+
+        return ratedMovies;
+    }
+
+
+    [HttpGet("getUserRatedMovies/{user_id}")]
+    public IEnumerable<Movie> getUserRatedMovies(int user_id){
+        List<Movie> ratedMovies = new List<Movie>();
+        using (var dbContext = new MoviesContext()){
+            IEnumerable<Movie> allMovies = dbContext.Movies.AsEnumerable().ToList();
+            IEnumerable<Rating> userRatings = dbContext.Ratings.Where(r => r.RatingUser.UserID == user_id).ToList();
+            foreach(Rating rating in userRatings){
+                foreach(Movie movie in allMovies){
+                    if (rating.RatedMovie.MovieID == movie.MovieID){
+                        ratedMovies.Add(movie);
+                    }
+                }
+            }
+        }
+
+        return ratedMovies;
+    }
+
+    [HttpGet("getMostSimilarMovies/{user_id}")]
+    public IEnumerable<Movie> getMostSimilarMovies(int user_id){
+        IEnumerable<Movie> emptyMovies = Enumerable.Empty<Movie>();
+        using (var dbContext = new MoviesContext()){
+            IEnumerable<Movie> allMovies = dbContext.Movies.AsEnumerable().ToList();
+            Rating highestRating = dbContext.Ratings.Where(r => r.RatingUser.UserID == user_id).OrderByDescending(r => r.RatingValue).ToList().First();
+            foreach(Movie movie in allMovies){
+                if (highestRating.RatedMovie.MovieID == movie.MovieID){
+                    IEnumerable<Movie> similarMovies = getMoviesWithSimilarGenres(movie.MovieID);
+                    return similarMovies;
+                }
+            }
+            
+        }
+        return emptyMovies;
+    }
+
+
+    [HttpGet("getSetMostSimilarMovies/{user_id}/{size}")]
+    public IEnumerable<Movie> getSetMostSimilarMovies(int user_id, int size){
+        IEnumerable<Movie> emptyMovies = Enumerable.Empty<Movie>();
+        using (var dbContext = new MoviesContext()){
+            IEnumerable<Movie> allMovies = dbContext.Movies.AsEnumerable().ToList();
+            Rating highestRating = dbContext.Ratings.Where(r => r.RatingUser.UserID == user_id).OrderByDescending(r => r.RatingValue).ToList().First();
+            foreach(Movie movie in allMovies){
+                if (highestRating.RatedMovie.MovieID == movie.MovieID){
+                    IEnumerable<Movie> similarMovies = getMoviesWithSimilarGenres(movie.MovieID).Take(size);
+                    return similarMovies;
+                }
+            }
+            
+        }
+        return emptyMovies;
+    }
+
+
+
     static double CosineSimilarity(int[] vector1, int[] vector2)
     {
         double dotProduct = vector1.Select((x, i) => x * vector2[i]).Sum();
@@ -229,6 +304,12 @@ public class MoviesController : ControllerBase
         double magnitude2 = Math.Sqrt(vector2.Select(x => x * x).Sum());
 
         return dotProduct / (magnitude1 * magnitude2);
+    }
+
+    public class RatedMovie
+    {
+        public Movie Movie { get; set; }
+        public int RatingValue { get; set; }
     }
 
 }
